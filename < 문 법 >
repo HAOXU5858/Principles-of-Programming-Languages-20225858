@@ -1,0 +1,125 @@
+import re
+
+class RecursiveDescentParser:
+    def __init__(self, tokens):
+        self.tokens = tokens  # 输入的 token 列表
+        self.pos = 0          # 当前 token 的位置
+
+    def current_token(self):
+        """返回当前 token"""
+        if self.pos < len(self.tokens):
+            return self.tokens[self.pos]
+        return None
+
+    def match(self, expected):
+        """匹配当前 token，并前进到下一个 token"""
+        if self.current_token() == expected:
+            self.pos += 1
+            return True
+        return False
+
+    def parse_program(self):
+        """<program> → <statements>"""
+        return self.parse_statements()
+
+    def parse_statements(self):
+        """<statements> → <statement> | <statement><semi_colon><statements>"""
+        if self.parse_statement():
+            while self.match(";"):  # 处理多个语句
+                if not self.parse_statement():
+                    return False
+            return True
+        return False
+
+    def parse_statement(self):
+        """<statement> → <ident><assignment_op><expression>"""
+        if self.parse_ident() and self.match(":=") and self.parse_expression():
+            return True
+        return False
+
+    def parse_expression(self):
+        """<expression> → <term><term_tail>"""
+        if self.parse_term():
+            return self.parse_term_tail()
+        return False
+
+    def parse_term_tail(self):
+        """<term_tail> → <add_op><term><term_tail> | ε"""
+        if self.parse_add_op():
+            if self.parse_term():
+                return self.parse_term_tail()
+            return False
+        return True  # ε
+
+    def parse_term(self):
+        """<term> → <factor><factor_tail>"""
+        if self.parse_factor():
+            return self.parse_factor_tail()
+        return False
+
+    def parse_factor_tail(self):
+        """<factor_tail> → <mult_op><factor><factor_tail> | ε"""
+        if self.parse_mult_op():
+            if self.parse_factor():
+                return self.parse_factor_tail()
+            return False
+        return True  # ε
+
+    def parse_factor(self):
+        """<factor> → <left_paren><expression><right_paren> | <ident> | <const>"""
+        if self.match("("):
+            if self.parse_expression() and self.match(")"):
+                return True
+            return False
+        if self.parse_ident() or self.parse_const():
+            return True
+        return False
+
+    def parse_add_op(self):
+        """<add_operator> → + | -"""
+        return self.match("+") or self.match("-")
+
+    def parse_mult_op(self):
+        """<mult_operator> → * | /"""
+        return self.match("*") or self.match("/")
+
+    def parse_ident(self):
+        """<ident> → 符合 C 语言标识符规则的名称"""
+        if self.current_token() and re.match(r"[a-zA-Z_][a-zA-Z0-9_]*", self.current_token()):
+            self.pos += 1
+            return True
+        return False
+
+    def parse_const(self):
+        """<const> → 十进制数字"""
+        if self.current_token() and self.current_token().isdigit():
+            self.pos += 1
+            return True
+        return False
+
+    def parse(self):
+        """主解析入口"""
+        if self.parse_program() and self.current_token() is None:
+            return "Program is valid"
+        return "Syntax error"
+
+def tokenize_program(program):
+    """将程序字符串转换为 token 列表"""
+    token_pattern = r'[a-zA-Z_][a-zA-Z0-9_]*|:=|;|\d+|[()+\-*/]'
+    return re.findall(token_pattern, program)
+
+def main():
+    # 读取用户输入的程序字符串
+    program_input = "operand1 := 6 operand2 := operand1 + 6 target := operand1 + operand2 + 19"
+    
+    # 将输入的程序字符串转化为 tokens
+    tokens = tokenize_program(program_input)
+    print("Tokens:", tokens)
+    
+    # 创建解析器并解析
+    parser = RecursiveDescentParser(tokens)
+    result = parser.parse()
+    print(result)
+
+if __name__ == "__main__":
+    main()
